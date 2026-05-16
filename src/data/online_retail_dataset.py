@@ -209,6 +209,45 @@ def collate_fn(batch):
     labels = torch.stack(labels)
     return padded_sequences, static_features, labels, lengths
 
+
+class CausalDataset(Dataset):
+    """
+    Shuffle-safe dataset that bundles causal labels with sequences.
+    
+    This fixes the critical batch misalignment bug (Audit C1): when a DataLoader
+    uses shuffle=True, treatment and dr_target travel with each sample, so the
+    loss is always computed against the correct labels.
+    """
+    def __init__(self, samples: List[dict], causal_df, dr_targets=None):
+        self.samples = samples
+        self.treatment = causal_df['treatment'].values.astype(np.float32)
+        self.y_obs = causal_df['y_obs'].values.astype(np.float32)
+        self.dr_target = dr_targets if dr_targets is not None else np.zeros(len(samples), dtype=np.float32)
+
+    def __len__(self):
+        return len(self.samples)
+
+    def __getitem__(self, idx):
+        sample = self.samples[idx]
+        sequence = torch.FloatTensor(sample['sequence'])
+        static = torch.FloatTensor(sample['static_features'])
+        label = torch.FloatTensor([sample['label']])
+        treatment = torch.FloatTensor([self.treatment[idx]])
+        dr_target = torch.FloatTensor([self.dr_target[idx]])
+        return sequence, static, label, treatment, dr_target
+
+
+def causal_collate_fn(batch):
+    """Collate function for CausalDataset — handles the 5-tuple."""
+    sequences, static_features, labels, treatments, dr_targets = zip(*batch)
+    lengths = torch.LongTensor([len(seq) for seq in sequences])
+    padded_sequences = torch.nn.utils.rnn.pad_sequence(sequences, batch_first=True, padding_value=0.0)
+    static_features = torch.stack(static_features)
+    labels = torch.stack(labels)
+    treatments = torch.stack(treatments)
+    dr_targets = torch.stack(dr_targets)
+    return padded_sequences, static_features, labels, lengths, treatments, dr_targets
+
 if __name__ == "__main__":
     config = PipelineConfig(
         observation_window_months=12,

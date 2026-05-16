@@ -26,26 +26,20 @@ class ZILNLoss(nn.Module):
         bce_loss = F.binary_cross_entropy_with_logits(logits, positive_mask, reduction='none')
         
         # 2. Regression part: log-likelihood of lognormal for y > 0
-        # Lognormal PDF: 1/(y * sigma * sqrt(2pi)) * exp(-(log(y)-mu)^2 / 2sigma^2)
+        # PDF: 1/(y * sigma * sqrt(2pi)) * exp(-(log(y)-mu)^2 / 2sigma^2)
         # Log-PDF: -log(y) - log(sigma) - 0.5*log(2pi) - (log(y)-mu)^2 / (2*sigma^2)
+        # Negative Log-Likelihood (NLL): log(y) + log(sigma) + 0.5*log(2pi) + (log(y)-mu)^2 / (2*sigma^2)
         
-        # We only calculate this for positive targets
         y_pos = target.clamp(min=self.eps)
         log_y = torch.log(y_pos)
         
         # Log-likelihood terms
-        term1 = -torch.log(sigma.clamp(min=self.eps))
-        term2 = -0.5 * np.log(2 * np.pi)
-        term3 = -((log_y - mu) ** 2) / (2 * (sigma ** 2).clamp(min=self.eps))
+        term1 = torch.log(sigma.clamp(min=self.eps)) # +log(sigma)
+        term2 = 0.5 * np.log(2 * np.pi)              # +0.5*log(2pi)
+        term3 = ((log_y - mu) ** 2) / (2 * (sigma ** 2).clamp(min=self.eps)) # +quad
         
-        lognormal_log_prob = term1 + term2 + term3
-        
-        # Negative Log Likelihood
-        # Total loss = bce_loss + positive_mask * (-lognormal_log_prob)
-        # We add log(y) to the loss because it's part of the PDF denominator, 
-        # but in training we often optimize log(y) as a normal distribution target.
-        # However, for a proper ZILN, we include -log(y) in the log-prob, so +log(y) in the loss.
-        regression_loss = -log_y - lognormal_log_prob
+        # Total regression loss (NLL)
+        regression_loss = log_y + term1 + term2 + term3
         
         loss = bce_loss + positive_mask * regression_loss
         
