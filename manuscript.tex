@@ -205,7 +205,9 @@ where $\text{Tenure}_i$ measures the fractional years elapsed since the customer
 \subsection{Semi-Synthetic Target Generation and Selection Bias Injection}
 To validate structural counterfactual parameters without sacrificing the skewed distributional properties typical of transaction data, we design a multi-stage distribution generator. First, we formalize the true baseline heterogeneous response layer ($\tau_{\text{true}, i}$) via explicit non-linear mappings. Let $\text{Velocity}_i$ characterize the transaction density, and let $\text{Tenure}_i$ denote customer age. We define a Gaussian peak effect around a moderate tenure threshold ($t_{\text{mod}}$) and a linear velocity interaction:
 \begin{equation}
+\resizebox{0.95\columnwidth}{!}{$\displaystyle
 \tau_{\text{true}, i} = \max\left(0, \, \alpha \cdot \text{Velocity}_i + \gamma \exp\left(-\frac{(\text{Tenure}_i - t_{\text{mod}})^2}{2\sigma_{\tau}^2}\right) + \epsilon_i \right)
+$}
 \end{equation}
 where $\epsilon_i \sim \mathcal{N}(0, 5^2)$ and parameters are configured to guarantee an analytical global average treatment effect $\text{ATE} \approx 45.12$. 
 
@@ -220,7 +222,9 @@ Y_i(1) = Y_i(0) + \tau_{\text{true}, i}
 
 A central vulnerability in observational marketing analytics is selection bias, where intervention deployments are skewed toward consumers already showing strong purchasing indicators. To model this confounding challenge, we inject non-random treatment selection using a controlled assignment selector. The true propensity score $e_i = P(T_i = 1 \mid \mathcal{H}_i, \mathbf{s}_i)$ is formalized via a logistic selection equation modulated by a selection bias scaling parameter $\kappa$:
 \begin{equation}
+\resizebox{0.95\columnwidth}{!}{$\displaystyle
 e_i = \frac{1}{1 + \exp\left(-\kappa \cdot \left[\bar{X}_{i, \text{spend}} - \text{Median}(\bar{X}_{\text{spend}})\right]\right)}
+$}
 \end{equation}
 Configuring $\kappa = 2.0$ injects a high degree of assignment confounding, heavily biasing treatment toward high-value customers. The observed binary assignment indicator $T_i$ and the realized expenditure target $Y_{\text{obs}, i}$ are finalized through individual stochastic realizations:
 \begin{equation}
